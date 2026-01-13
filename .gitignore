@@ -1,0 +1,9 @@
+/dist
+/tmp
+/out-tsc
+/node_modules
+/.idea
+.vscode/*
+/coverage
+.DS_Store
+Thumbs.db
