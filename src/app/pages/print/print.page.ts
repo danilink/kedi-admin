@@ -99,7 +99,11 @@ export class PrintPageComponent {
   @ViewChild('capture', { static: false }) capture?: ElementRef<HTMLDivElement>;
 
   onTab(index: number) { this.selectedDay.set(this.weekdays[index] ?? 'Lunes'); }
-  print() { window.print(); }
+  async print() {
+    const el = this.capture?.nativeElement;
+    if (!el) return;
+    await this.exporter.printElementToPdfA4(el, `menu-${this.selectedDay().toLowerCase()}-a4.pdf`);
+  }
 
   async exportPdf() {
     const el = this.capture?.nativeElement;

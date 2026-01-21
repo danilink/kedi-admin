@@ -12,6 +12,30 @@ export class ExportService {
   }
 
   async exportElementToPdfA4(element: HTMLElement, filename: string) {
+    const pdf = await this.buildPdfA4(element);
+    pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+  }
+
+  async printElementToPdfA4(element: HTMLElement, filename: string) {
+    const pdf = await this.buildPdfA4(element);
+    const blob = pdf.output('blob');
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank');
+    if (!printWindow) return;
+    const cleanup = () => URL.revokeObjectURL(url);
+    const tryPrint = () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } finally {
+        printWindow.removeEventListener('load', tryPrint);
+      }
+    };
+    printWindow.addEventListener('load', tryPrint);
+    printWindow.addEventListener('afterprint', cleanup, { once: true });
+  }
+
+  private async buildPdfA4(element: HTMLElement) {
     await (document as any).fonts?.ready;
     const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -27,8 +51,7 @@ export class ExportService {
     const y = (pageHeight - imgHeight) / 2;
 
     pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
-
-    pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+    return pdf;
   }
 
   private download(dataUrl: string, filename: string) {
