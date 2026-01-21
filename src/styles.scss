@@ -1,2 +1,300 @@
-html, body { height: 100%; }
-body { margin: 0; background: #f6f6f6; }
+@use '@angular/material' as mat;
+
+$theme: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: mat.$orange-palette,
+    tertiary: mat.$yellow-palette,
+  ),
+  typography: (
+    plain-family: 'Plus Jakarta Sans',
+    brand-family: 'Plus Jakarta Sans',
+    bold-weight: 700,
+    medium-weight: 600,
+    regular-weight: 400,
+  ),
+  density: (
+    scale: -1,
+  ),
+));
+
+@include mat.core();
+@include mat.all-component-themes($theme);
+@include mat.typography-hierarchy($theme);
+
+:root {
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  --color-primary-100: #f3e7da;
+  --color-primary-500: #6f5437;
+  --color-primary-600: #5b442d;
+  --color-primary-700: #4a3826;
+  --color-secondary-500: #b88a3b;
+  --color-success-500: #2f8f4b;
+  --color-warning-500: #c07a1b;
+  --color-danger-500: #b3261e;
+  --color-info-500: #7a5a2a;
+
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f8fb;
+  --color-bg: #f4f6fb;
+  --color-border: #e2e7ef;
+  --color-text: #1c2333;
+  --color-muted: #5b6678;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow-1: 0 8px 20px rgba(16, 24, 40, 0.08);
+  --shadow-2: 0 12px 32px rgba(16, 24, 40, 0.12);
+
+  --font-size-12: 12px;
+  --font-size-14: 14px;
+  --font-size-16: 16px;
+  --font-size-20: 20px;
+  --font-size-24: 24px;
+  --font-size-32: 32px;
+
+  --focus-ring: 0 0 0 3px rgba(111, 84, 55, 0.25);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-14);
+  color: var(--color-text);
+  background:
+    radial-gradient(1200px 600px at 20% -10%, #e9f0ff 0%, transparent 60%),
+    radial-gradient(800px 400px at 95% 0%, #f0f6ff 0%, transparent 50%),
+    var(--color-bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.shell {
+  min-height: 100vh;
+  background: transparent;
+}
+
+.mainContent {
+  padding: var(--space-2) var(--space-1);
+}
+
+.mat-mdc-toolbar.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mat-drawer-container.shell {
+  background: transparent;
+}
+
+.sidenav {
+  width: 260px;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.sidenavHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4) var(--space-3);
+}
+
+.brandTitle {
+  font-weight: 700;
+  font-size: var(--font-size-16);
+}
+
+.brandSub {
+  font-size: var(--font-size-12);
+  color: var(--color-muted);
+}
+
+.navList .mat-mdc-list-item {
+  margin: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.navList .mat-mdc-list-item .mat-icon {
+  margin-right: var(--space-2);
+}
+
+.navList .mat-mdc-list-item.mdc-list-item--activated {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+
+.mat-mdc-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-1);
+  background: var(--color-surface);
+  padding: 20px;
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+.mat-mdc-form-field .mat-mdc-text-field-wrapper {
+  border-radius: var(--radius-md);
+}
+
+.mat-mdc-button-base {
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.mat-mdc-button-base .mat-icon {
+  margin-right: var(--space-1);
+}
+
+.mat-mdc-icon-button .mat-icon {
+  margin-right: 0;
+}
+
+.mat-mdc-raised-button,
+.mat-mdc-unelevated-button {
+  box-shadow: none;
+}
+
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-unelevated-button.mat-primary {
+  background: var(--color-primary-500);
+  color: #fff;
+  --mdc-filled-button-container-color: var(--color-primary-500);
+  --mdc-filled-button-label-text-color: #fff;
+  --mdc-filled-button-hover-state-layer-color: rgba(255, 255, 255, 0.1);
+  --mdc-filled-button-focus-state-layer-color: rgba(255, 255, 255, 0.14);
+  --mdc-filled-button-pressed-state-layer-color: rgba(255, 255, 255, 0.18);
+}
+
+.mat-mdc-raised-button.mat-primary:hover,
+.mat-mdc-unelevated-button.mat-primary:hover {
+  background: var(--color-primary-600);
+}
+
+.mat-mdc-raised-button.mat-primary:active,
+.mat-mdc-unelevated-button.mat-primary:active {
+  background: var(--color-primary-700);
+}
+
+.mat-mdc-stroked-button.mat-primary {
+  color: var(--color-primary-600);
+  border-color: rgba(111, 84, 55, 0.35);
+}
+
+.mat-mdc-stroked-button.mat-primary:hover {
+  background: rgba(111, 84, 55, 0.08);
+}
+
+.mat-mdc-stroked-button:not(.mat-primary):hover {
+  background: rgba(111, 84, 55, 0.06);
+}
+
+.mat-mdc-chip {
+  border-radius: 999px;
+  font-weight: 600;
+  background: rgba(111, 84, 55, 0.12);
+  color: var(--color-primary-700);
+}
+
+.mat-mdc-tab-group {
+  margin-top: var(--space-3);
+  --mdc-tab-indicator-active-indicator-color: var(--color-primary-500);
+  --mdc-tab-indicator-active-indicator-height: 3px;
+  --mdc-tab-label-text-color: var(--color-muted);
+  --mdc-tab-active-label-text-color: var(--color-primary-700);
+  --mdc-tab-active-focus-label-text-color: var(--color-primary-700);
+  --mdc-tab-active-hover-label-text-color: var(--color-primary-700);
+  --mdc-tab-hover-state-layer-color: rgba(111, 84, 55, 0.08);
+  --mdc-tab-focus-state-layer-color: rgba(111, 84, 55, 0.12);
+}
+
+.mat-mdc-tab-group .mdc-tab--active .mdc-tab__text-label {
+  color: var(--color-primary-700);
+}
+
+.mat-mdc-tab-group .mdc-tab-indicator__content--underline {
+  border-color: var(--color-primary-500);
+}
+
+.mat-mdc-tab-group .mdc-tab__text-label {
+  color: var(--color-muted);
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.pageHeaderTitle {
+  font-size: var(--font-size-20);
+  font-weight: 700;
+}
+
+.pageHeaderSubtitle {
+  color: var(--color-muted);
+}
+
+@media (max-width: 1024px) {
+  .mainContent {
+    padding: var(--space-2) var(--space-1);
+  }
+}
+
+@media (max-width: 768px) {
+  .mainContent {
+    padding: var(--space-2) var(--space-1);
+  }
+
+  .sidenav {
+    width: 82vw;
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mainContent {
+    padding: var(--space-2) var(--space-2);
+  }
+}

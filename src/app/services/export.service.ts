@@ -5,34 +5,28 @@ import jsPDF from 'jspdf';
 @Injectable({ providedIn: 'root' })
 export class ExportService {
   async exportElementToJpg(element: HTMLElement, filename: string) {
-    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+    await (document as any).fonts?.ready;
+    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     this.download(dataUrl, filename.endsWith('.jpg') ? filename : `${filename}.jpg`);
   }
 
   async exportElementToPdfA4(element: HTMLElement, filename: string) {
-    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+    await (document as any).fonts?.ready;
+    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
     const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+    const imgWidth = canvas.width * scale;
+    const imgHeight = canvas.height * scale;
+    const x = (pageWidth - imgWidth) / 2;
+    const y = (pageHeight - imgHeight) / 2;
 
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      pdf.addPage();
-      position = -(imgHeight - heightLeft);
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
-    }
+    pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
 
     pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
   }

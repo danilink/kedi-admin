@@ -1,13 +1,9 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { MenuState } from '../models/menu.models';
 import { EMPTY_LIBRARY, MenuLibrary } from '../data/menu-library';
 
-const STORAGE_KEY = 'menu-diario-library-v1';
-
-function safeParse<T>(raw: string | null): T | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as T; } catch { return null; }
-}
+const ENDPOINT =
+  'https://script.google.com/macros/s/AKfycbxlVInI-VLC7K1fSLRCmGyipK1nBzxlH4lZLNDlO4CIQ2bihVIPJRrxsF4MF1dYZeSv/exec';
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -27,9 +23,18 @@ function mergeUnique(existing: string[], incoming: string[]) {
   return Array.from(map.values());
 }
 
+function diffNewItems(existing: string[], incoming: string[]) {
+  const known = new Set(existing.map((v) => normalize(v)).filter(Boolean));
+  return incoming
+    .map((v) => v.trim())
+    .map((v) => ({ raw: v, norm: normalize(v) }))
+    .filter((v) => v.raw && v.norm && !known.has(v.norm))
+    .map((v) => v.raw);
+}
+
 @Injectable({ providedIn: 'root' })
 export class MenuLibraryService {
-  private readonly stateSig = signal<MenuLibrary>(this.loadInitial());
+  private readonly stateSig = signal<MenuLibrary>(structuredClone(EMPTY_LIBRARY));
   private bootstrapped = false;
 
   readonly state = computed(() => this.stateSig());
@@ -37,11 +42,7 @@ export class MenuLibraryService {
   readonly segundos = computed(() => this.stateSig().segundos);
   readonly postres = computed(() => this.stateSig().postres);
 
-  constructor() {
-    effect(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.stateSig()));
-    });
-  }
+  constructor() {}
 
   bootstrapFromState(state: MenuState) {
     if (this.bootstrapped) return;
@@ -56,20 +57,58 @@ export class MenuLibraryService {
     const cleaned = items.map((v) => v.trim()).filter(Boolean);
     if (!cleaned.length) return;
     const current = this.stateSig();
+    const newItems = diffNewItems(current[kind], cleaned);
     this.stateSig.set({
       ...current,
       [kind]: mergeUnique(current[kind], cleaned),
     });
+    if (newItems.length) {
+      void this.appendToSheet(kind, newItems);
+    }
   }
 
-  private loadInitial(): MenuLibrary {
-    const fromStorage = safeParse<MenuLibrary>(localStorage.getItem(STORAGE_KEY));
-    if (!fromStorage || fromStorage.version !== 1) return structuredClone(EMPTY_LIBRARY);
-    return {
-      version: 1,
-      primeros: [...fromStorage.primeros],
-      segundos: [...fromStorage.segundos],
-      postres: [...fromStorage.postres],
-    };
+  async loadFromSheets() {
+    try {
+      const [primeros, segundos, postres] = await Promise.all([
+        this.readSheet('primeros'),
+        this.readSheet('segundos'),
+        this.readSheet('postres'),
+      ]);
+      this.stateSig.set({
+        version: 1,
+        primeros,
+        segundos,
+        postres,
+      });
+    } catch (err) {
+      console.error('No se pudieron cargar las sugerencias.', err);
+    }
+  }
+
+  private async readSheet(kind: 'primeros' | 'segundos' | 'postres'): Promise<string[]> {
+    const url = new URL(ENDPOINT);
+    url.searchParams.set('action', 'suggestions-read');
+    url.searchParams.set('sheet', kind);
+    const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+    if (!res.ok) throw new Error(`Error leyendo ${kind}: ${res.status}`);
+    const data = (await res.json()) as { items?: string[] };
+    return (data.items ?? []).map((v) => v.trim()).filter(Boolean);
+  }
+
+  private async appendToSheet(kind: 'primeros' | 'segundos' | 'postres', items: string[]) {
+    try {
+      const body = new URLSearchParams({
+        action: 'suggestions-append',
+        sheet: kind,
+        items: JSON.stringify(items),
+      });
+      await fetch(ENDPOINT, {
+        method: 'POST',
+        cache: 'no-store',
+        body,
+      });
+    } catch (err) {
+      console.error(`Error guardando sugerencias en ${kind}.`, err);
+    }
   }
 }

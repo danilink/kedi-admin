@@ -1,11 +1,12 @@
-import { Component, Input } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
   selector: 'app-list-editor',
@@ -18,28 +19,42 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
+    DragDropModule,
   ],
   template: `
     <mat-form-field appearance="outline" class="full">
       <mat-label>{{ label }}</mat-label>
 
-      <mat-chip-grid #grid aria-label="Lista editable">
+      <mat-chip-grid
+        #grid
+        aria-label="Lista editable"
+        class="chipGrid"
+        cdkDropList
+        cdkDropListOrientation="horizontal"
+        (cdkDropListDropped)="drop($event)"
+        (click)="onGridClick()"
+      >
         @for (ctrl of items.controls; track ctrl; let i = $index) {
-          <mat-chip-row (removed)="remove(i)">
+          <mat-chip-row cdkDrag (removed)="remove(i)">
             {{ ctrl.value }}
-            <button matChipRemove class="removeBtn" aria-label="Quitar">×</button>
+            <button matChipRemove type="button" class="removeBtn" aria-label="Quitar" (click)="remove(i)">
+              <mat-icon>close</mat-icon>
+            </button>
           </mat-chip-row>
         }
 
-        <input
-          [matChipInputFor]="grid"
-          [placeholder]="placeholder"
-          [matAutocomplete]="auto"
-          [formControl]="inputCtrl"
-          (keydown.enter)="addFromInput(); $event.preventDefault()"
-          (blur)="addFromInput()"
-          (input)="onInput($any($event.target).value)"
-        />
+        @if (showInput()) {
+          <input
+            #inputEl
+            [matChipInputFor]="grid"
+            [placeholder]="placeholder"
+            [matAutocomplete]="auto"
+            [formControl]="inputCtrl"
+            (keydown.enter)="onEnter($event)"
+            (blur)="addFromInput()"
+            (input)="onInput($any($event.target).value)"
+          />
+        }
       </mat-chip-grid>
 
       <mat-autocomplete #auto="matAutocomplete" (optionSelected)="onOptionSelected($event.option.value)">
@@ -53,13 +68,22 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
   `,
   styles: [`
     .full { width: 100%; }
+    .chipGrid { min-height: 44px; }
+    .chipGrid { cursor: text; }
+    mat-chip-row { cursor: grab; }
+    mat-chip-row:active { cursor: grabbing; }
     .removeBtn {
       border: 0;
       background: transparent;
-      font-size: 18px;
+      padding: 0;
       line-height: 1;
       cursor: pointer;
       color: #555;
+    }
+    .removeBtn mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
     }
   `],
 })
@@ -69,16 +93,30 @@ export class ListEditorComponent {
   @Input() placeholder = 'Añadir…';
   @Input() suggestions: string[] = [];
 
+  @ViewChild(MatAutocompleteTrigger) autocompleteTrigger?: MatAutocompleteTrigger;
+  @ViewChild('inputEl') inputEl?: ElementRef<HTMLInputElement>;
+
   inputCtrl = new FormControl<string>('', { nonNullable: true });
   private filterValue = '';
+  readonly showInput = signal(true);
 
   onInput(value: string) {
     this.filterValue = value ?? '';
   }
 
   onOptionSelected(value: string) {
-    this.inputCtrl.setValue(value);
-    this.filterValue = value ?? '';
+    if (!value) return;
+    this.addValue(value);
+    this.inputCtrl.setValue('');
+    this.filterValue = '';
+    this.autocompleteTrigger?.closePanel();
+    this.hideInput();
+  }
+
+  onEnter(event: KeyboardEvent) {
+    if (this.autocompleteTrigger?.panelOpen) return;
+    this.addFromInput();
+    event.preventDefault();
   }
 
   filteredSuggestions() {
@@ -100,14 +138,37 @@ export class ListEditorComponent {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    for (const p of parts) this.items.push(new FormControl<string>(p, { nonNullable: true }));
+    for (const p of parts) this.addValue(p);
 
     this.inputCtrl.setValue('');
     this.items.markAsDirty();
+    this.hideInput();
   }
 
   remove(index: number) {
     this.items.removeAt(index);
     this.items.markAsDirty();
+  }
+
+  private addValue(value: string) {
+    this.items.push(new FormControl<string>(value, { nonNullable: true }));
+  }
+
+  drop(event: CdkDragDrop<FormControl<string>[]>) {
+    if (event.previousIndex === event.currentIndex) return;
+    const control = this.items.at(event.previousIndex);
+    this.items.removeAt(event.previousIndex);
+    this.items.insert(event.currentIndex, control);
+    this.items.markAsDirty();
+  }
+
+  onGridClick() {
+    if (this.showInput()) return;
+    this.showInput.set(true);
+    queueMicrotask(() => this.inputEl?.nativeElement.focus());
+  }
+
+  private hideInput() {
+    this.showInput.set(false);
   }
 }
