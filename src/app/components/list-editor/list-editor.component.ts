@@ -130,6 +130,7 @@ export class ListEditorComponent {
   }
 
   addFromInput() {
+    if (this.autocompleteTrigger?.panelOpen) return;
     const raw = this.inputCtrl.value.trim();
     if (!raw) return;
 
