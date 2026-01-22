@@ -287,6 +287,7 @@ export class EditorPageComponent {
   get postres() { return this.form.controls.postres; }
 
   constructor() {
+    void this.store.loadFromSheets();
     void this.library.loadFromSheets().then(() => {
       this.library.bootstrapFromState(this.store.state());
     });

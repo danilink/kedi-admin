@@ -6,9 +6,14 @@ import jsPDF from 'jspdf';
 export class ExportService {
   async exportElementToJpg(element: HTMLElement, filename: string) {
     await (document as any).fonts?.ready;
-    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-    this.download(dataUrl, filename.endsWith('.jpg') ? filename : `${filename}.jpg`);
+    element.classList.add('export-jpg-boost');
+    try {
+      const canvas = await html2canvas(element, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      this.download(dataUrl, filename.endsWith('.jpg') ? filename : `${filename}.jpg`);
+    } finally {
+      element.classList.remove('export-jpg-boost');
+    }
   }
 
   async exportElementToPdfA4(element: HTMLElement, filename: string) {

@@ -276,6 +276,20 @@ img {
   color: var(--color-muted);
 }
 
+.export-jpg-boost .sheet { color: #111; }
+.export-jpg-boost .title,
+.export-jpg-boost .menuTitle,
+.export-jpg-boost .sectionTitle,
+.export-jpg-boost .dish,
+.export-jpg-boost .reserve {
+  font-weight: 600;
+}
+.export-jpg-boost .list,
+.export-jpg-boost .postresCols,
+.export-jpg-boost .footLine {
+  font-weight: 600;
+}
+
 @media (max-width: 1024px) {
   .mainContent {
     padding: var(--space-2) var(--space-1);
