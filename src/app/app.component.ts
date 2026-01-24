@@ -48,12 +48,25 @@ import { AuthService } from './services/auth.service';
           <mat-nav-list class="navList">
             <a mat-list-item routerLink="/editor" routerLinkActive="mdc-list-item--activated" class="navItem">
               <mat-icon>edit_note</mat-icon>
-              <span>Editor</span>
+              <span>Menú diario</span>
             </a>
-            <a mat-list-item routerLink="/print" routerLinkActive="mdc-list-item--activated" class="navItem">
-              <mat-icon>print</mat-icon>
-              <span>Imprimir</span>
-            </a>
+
+            <div class="navGroup">
+              <div class="navGroupTitle">
+                <mat-icon>receipt_long</mat-icon>
+                <span>Facturas</span>
+              </div>
+              <div class="navSubList">
+                <a mat-list-item routerLink="/invoices" routerLinkActive="mdc-list-item--activated" class="navItem navSubItem">
+                  <mat-icon>list_alt</mat-icon>
+                  <span>Listado</span>
+                </a>
+                <a mat-list-item routerLink="/invoice-compare" routerLinkActive="mdc-list-item--activated" class="navItem navSubItem">
+                  <mat-icon>compare_arrows</mat-icon>
+                  <span>Comparador</span>
+                </a>
+              </div>
+            </div>
           </mat-nav-list>
         </mat-sidenav>
 
@@ -118,6 +131,20 @@ import { AuthService } from './services/auth.service';
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .navGroup { margin: 8px 0 4px; }
+    .navGroupTitle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+      font-weight: 600;
+    }
+    .navSubList { display: grid; gap: 4px; padding: 0 8px 4px; }
+    .navSubItem { padding-left: 12px; }
 
     @media (max-width: 768px) {
       .userBadge { display: none; }

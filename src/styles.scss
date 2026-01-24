@@ -421,6 +421,12 @@ img {
   padding: var(--space-6);
 }
 
+.snackbar-error {
+  --mdc-snackbar-container-color: #b3261e;
+  --mdc-snackbar-supporting-text-color: #fff;
+  --mdc-snackbar-action-label-text-color: #fff;
+}
+
 .export-jpg-boost .sheet { color: #111; }
 .export-jpg-boost .title,
 .export-jpg-boost .menuTitle,
