@@ -68,9 +68,19 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
   `,
   styles: [`
     .full { width: 100%; }
-    .chipGrid { min-height: 44px; }
-    .chipGrid { cursor: text; }
-    mat-chip-row { cursor: grab; }
+    .chipGrid {
+      min-height: 44px;
+      cursor: text;
+      padding: 4px 4px 6px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.6);
+    }
+    mat-chip-row {
+      cursor: grab;
+      border-radius: 999px;
+      background: rgba(107, 75, 50, 0.1);
+      font-weight: var(--font-weight-medium);
+    }
     mat-chip-row:active { cursor: grabbing; }
     .removeBtn {
       border: 0;
@@ -78,7 +88,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
       padding: 0;
       line-height: 1;
       cursor: pointer;
-      color: #555;
+      color: var(--color-muted);
     }
     .removeBtn mat-icon {
       font-size: 16px;

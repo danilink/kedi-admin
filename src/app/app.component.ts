@@ -93,8 +93,8 @@ import { AuthService } from './services/auth.service';
   `,
   styles: [`
     .spacer { flex: 1 1 auto; }
-    .user { font-size: 12px; opacity: 0.7; }
-    .title { text-decoration: none; color: inherit; font-weight: 700; margin-left: 8px; }
+    .user { font-size: 12px; opacity: 0.75; }
+    .title { text-decoration: none; color: inherit; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; }
     .menuBtn.is-hidden { display: none; }
     .collapseBtn { margin-left: auto; }
     .collapseBtn mat-icon { font-size: 20px; width: 20px; height: 20px; }
@@ -104,11 +104,11 @@ import { AuthService } from './services/auth.service';
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 10px;
+      padding: 6px 12px;
       margin-right: 12px;
       border-radius: 999px;
-      background: rgba(111, 84, 55, 0.12);
-      color: #6f5437;
+      background: rgba(107, 75, 50, 0.12);
+      color: var(--color-primary-700);
       font-weight: 600;
       max-width: 220px;
     }
@@ -131,7 +131,6 @@ export class AppComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly breakpointObserver = inject(BreakpointObserver);
-
   readonly isLoggedIn = computed(() => this.auth.isLoggedIn());
   readonly userEmail = computed(() => this.auth.user()?.email ?? '');
   readonly sidenavOpen = signal(true);

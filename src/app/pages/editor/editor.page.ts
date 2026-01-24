@@ -57,145 +57,174 @@ type MenuForm = FormGroup<{
   ],
   template: `
     <div class="wrap">
-      <mat-card>
+      <mat-card class="surfaceCard editorCard">
         <div class="pageHeader">
+          <div class="pageEyebrow">Editor</div>
           <div class="pageHeaderTitle">Configuración del menú diario</div>
-          <div class="pageHeaderSubtitle">Se guarda automáticamente en este navegador (localStorage).</div>
         </div>
 
-        <div class="actions">
-          <a mat-raised-button color="primary" routerLink="/print">
-            <mat-icon>print</mat-icon>
-            Imprimir
-          </a>
+        <div class="toolbarRow">
+          @if (publishStatus()) {
+            <div class="statusPill" role="status">{{ publishStatus() }}</div>
+          }
+          <div class="actions">
+            <a mat-raised-button color="primary" routerLink="/print">
+              <mat-icon>print</mat-icon>
+              Imprimir
+            </a>
+          </div>
         </div>
-        @if (publishStatus()) {
-          <div class="publishStatus">{{ publishStatus() }}</div>
-        }
 
         <mat-tab-group [selectedIndex]="selectedIndex()" (selectedIndexChange)="onTab($event)">
           @for (d of weekdays; track d) { <mat-tab [label]="d"></mat-tab> }
         </mat-tab-group>
 
         <form class="form" [formGroup]="form">
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Plato del día</mat-label>
-            <input matInput formControlName="platoDelDia" />
-          </mat-form-field>
+          <div class="sectionCard">
+            <div class="sectionHeader">
+              <div>
+                <div class="sectionTitle">Plato y precios</div>
+                <div class="sectionSubtitle">Información principal mostrada en la cabecera.</div>
+              </div>
+            </div>
 
-          <div class="row">
-            <mat-form-field appearance="outline" class="half">
-              <mat-label>Precio plato del día (€)</mat-label>
-              <input matInput type="number" step="0.01" formControlName="precioPlatoDelDia" />
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Plato del día</mat-label>
+              <input matInput formControlName="platoDelDia" />
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="half">
-              <mat-label>Precio menú (€)</mat-label>
-              <input matInput type="number" step="0.01" formControlName="precioMenu" />
+            <div class="row">
+              <mat-form-field appearance="outline" class="half">
+                <mat-label>Precio plato del día (€)</mat-label>
+                <input matInput type="number" step="0.01" formControlName="precioPlatoDelDia" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half">
+                <mat-label>Precio menú (€)</mat-label>
+                <input matInput type="number" step="0.01" formControlName="precioMenu" />
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div class="sectionCard">
+            <div class="sectionHeader">
+              <div>
+                <div class="sectionTitle">Listas del menú</div>
+                <div class="sectionSubtitle">Arrastra para reordenar. Enter para añadir.</div>
+              </div>
+            </div>
+
+            <div class="listBlock">
+              <div class="listHeader">
+                <div class="listTitle">Primeros</div>
+                <div class="listActions">
+                  <button mat-stroked-button class="listClear" (click)="clearList(primeros, 'primeros')">
+                    <mat-icon>delete_sweep</mat-icon>
+                    Borrar
+                  </button>
+                  @if (canUndo('primeros')) {
+                    <button
+                      mat-stroked-button
+                      class="listUndo"
+                      (click)="undoClear(primeros, 'primeros')"
+                    >
+                      <mat-icon>undo</mat-icon>
+                      Deshacer
+                    </button>
+                  }
+                </div>
+              </div>
+              <app-list-editor
+                [items]="primeros"
+                [suggestions]="primerosSuggestions()"
+                label="Primeros"
+                placeholder="Añadir primer plato…"
+              ></app-list-editor>
+            </div>
+
+            <div class="listBlock">
+              <div class="listHeader">
+                <div class="listTitle">Segundos</div>
+                <div class="listActions">
+                  <button mat-stroked-button class="listClear" (click)="clearList(segundos, 'segundos')">
+                    <mat-icon>delete_sweep</mat-icon>
+                    Borrar
+                  </button>
+                  @if (canUndo('segundos')) {
+                    <button
+                      mat-stroked-button
+                      class="listUndo"
+                      (click)="undoClear(segundos, 'segundos')"
+                    >
+                      <mat-icon>undo</mat-icon>
+                      Deshacer
+                    </button>
+                  }
+                </div>
+              </div>
+              <app-list-editor
+                [items]="segundos"
+                [suggestions]="segundosSuggestions()"
+                label="Segundos"
+                placeholder="Añadir segundo plato…"
+              ></app-list-editor>
+            </div>
+
+            <div class="listBlock">
+              <div class="listHeader">
+                <div class="listTitle">Postres caseros</div>
+                <div class="listActions">
+                  <button mat-stroked-button class="listClear" (click)="clearList(postres, 'postres')">
+                    <mat-icon>delete_sweep</mat-icon>
+                    Borrar
+                  </button>
+                  @if (canUndo('postres')) {
+                    <button
+                      mat-stroked-button
+                      class="listUndo"
+                      (click)="undoClear(postres, 'postres')"
+                    >
+                      <mat-icon>undo</mat-icon>
+                      Deshacer
+                    </button>
+                  }
+                </div>
+              </div>
+              <app-list-editor
+                [items]="postres"
+                [suggestions]="postresSuggestions()"
+                label="Postres caseros"
+                placeholder="Añadir postre…"
+              ></app-list-editor>
+            </div>
+          </div>
+
+          <div class="sectionCard">
+            <div class="sectionHeader">
+              <div>
+                <div class="sectionTitle">Contacto y notas</div>
+                <div class="sectionSubtitle">Se muestran en la versión imprimible.</div>
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Teléfono / reservas</mat-label>
+              <input matInput formControlName="telefono" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Notas internas</mat-label>
+              <textarea matInput rows="3" formControlName="notas"></textarea>
             </mat-form-field>
           </div>
-
-          <div class="listBlock">
-            <div class="listHeader">
-              <div class="listTitle">Primeros</div>
-              <div class="listActions">
-                <button mat-stroked-button class="listClear" (click)="clearList(primeros, 'primeros')">
-                  <mat-icon>delete_sweep</mat-icon>
-                  Borrar
-                </button>
-                @if (canUndo('primeros')) {
-                  <button
-                    mat-stroked-button
-                    class="listUndo"
-                    (click)="undoClear(primeros, 'primeros')"
-                  >
-                    <mat-icon>undo</mat-icon>
-                    Deshacer
-                  </button>
-                }
-              </div>
-            </div>
-            <app-list-editor
-              [items]="primeros"
-              [suggestions]="primerosSuggestions()"
-              label="Primeros"
-              placeholder="Añadir primer plato…"
-            ></app-list-editor>
-          </div>
-
-          <div class="listBlock">
-            <div class="listHeader">
-              <div class="listTitle">Segundos</div>
-              <div class="listActions">
-                <button mat-stroked-button class="listClear" (click)="clearList(segundos, 'segundos')">
-                  <mat-icon>delete_sweep</mat-icon>
-                  Borrar
-                </button>
-                @if (canUndo('segundos')) {
-                  <button
-                    mat-stroked-button
-                    class="listUndo"
-                    (click)="undoClear(segundos, 'segundos')"
-                  >
-                    <mat-icon>undo</mat-icon>
-                    Deshacer
-                  </button>
-                }
-              </div>
-            </div>
-            <app-list-editor
-              [items]="segundos"
-              [suggestions]="segundosSuggestions()"
-              label="Segundos"
-              placeholder="Añadir segundo plato…"
-            ></app-list-editor>
-          </div>
-
-          <div class="listBlock">
-            <div class="listHeader">
-              <div class="listTitle">Postres caseros</div>
-              <div class="listActions">
-                <button mat-stroked-button class="listClear" (click)="clearList(postres, 'postres')">
-                  <mat-icon>delete_sweep</mat-icon>
-                  Borrar
-                </button>
-                @if (canUndo('postres')) {
-                  <button
-                    mat-stroked-button
-                    class="listUndo"
-                    (click)="undoClear(postres, 'postres')"
-                  >
-                    <mat-icon>undo</mat-icon>
-                    Deshacer
-                  </button>
-                }
-              </div>
-            </div>
-            <app-list-editor
-              [items]="postres"
-              [suggestions]="postresSuggestions()"
-              label="Postres caseros"
-              placeholder="Añadir postre…"
-            ></app-list-editor>
-          </div>
-
-          <mat-divider></mat-divider>
-
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Teléfono / reservas</mat-label>
-            <input matInput formControlName="telefono" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Notas internas</mat-label>
-            <textarea matInput rows="3" formControlName="notas"></textarea>
-          </mat-form-field>
         </form>
       </mat-card>
 
-      <mat-card>
-        <mat-card-title>Textos del pie (editables)</mat-card-title>
-        <mat-card-subtitle>Se usan en la versión imprimible.</mat-card-subtitle>
+      <mat-card class="surfaceCard footerCard">
+        <div class="pageHeader">
+          <div class="pageHeaderTitle">Textos del pie (editables)</div>
+          <div class="pageHeaderSubtitle">Se usan en la versión imprimible.</div>
+        </div>
 
         <div class="footerEditor">
           @for (line of footerLines(); track line; let i = $index) {
@@ -220,29 +249,39 @@ type MenuForm = FormGroup<{
     </div>
   `,
   styles: [`
-    .wrap { display: grid; gap: 16px; width: 100%; max-width: none; margin: 0; padding: 16px; }
-    .actions { display: flex; gap: 8px; margin: 8px 0 16px; flex-wrap: wrap; }
-    .form { display: grid; gap: 12px; margin-top: 16px; }
-    .publishStatus { margin-top: 8px; font-size: 12px; color: var(--color-muted); }
+    .wrap { display: grid; gap: var(--space-6); width: 100%; max-width: none; margin: 0; }
+    .editorCard { display: grid; gap: var(--space-4); }
+    .footerCard { display: grid; gap: var(--space-3); }
+    .toolbarRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .statusWrap { display: flex; align-items: center; gap: var(--space-2); }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .form { display: grid; gap: var(--space-5); margin-top: var(--space-4); }
     .full { width: 100%; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; }
     .half { flex: 1 1 260px; }
-    .listBlock { display: grid; gap: 8px; }
+    .listBlock { display: grid; gap: var(--space-2); }
     .listHeader {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      font-weight: 600;
+      gap: var(--space-3);
+      font-weight: var(--font-weight-medium);
     }
-    .listTitle { font-size: 14px; color: var(--color-text); }
+    .listTitle { font-size: var(--font-size-14); color: var(--color-text); }
     .listClear { height: 36px; }
     .listActions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .footerEditor { margin-top: 12px; }
-    .footerActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .footerEditor { margin-top: var(--space-2); }
+    .footerActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--space-2); }
 
     @media (max-width: 768px) {
-      .actions { flex-direction: column; align-items: stretch; }
+      .actions { flex-direction: column; align-items: stretch; width: 100%; }
+      .toolbarRow { align-items: stretch; }
     }
   `],
 })
