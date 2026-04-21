@@ -1,11 +1,19 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, signal } from '@angular/core';
 import { DEFAULT_STATE } from '../data/default-menu';
 import { DayMenu, MenuState, Weekday } from '../models/menu.models';
-import { environment } from '../../environments/environment';
-import { AuthService } from './auth.service';
 
 const STORAGE_KEY = 'menu-diario-state-v1';
-const MENU_API_BASE = `${environment.apiBaseUrl}/menus/days`;
+const ENDPOINT =
+  'https://script.google.com/macros/s/AKfycbxlVInI-VLC7K1fSLRCmGyipK1nBzxlH4lZLNDlO4CIQ2bihVIPJRrxsF4MF1dYZeSv/exec';
+
+const WEEKDAY_MAP: Record<string, Weekday> = {
+  lunes: 'Lunes',
+  martes: 'Martes',
+  miercoles: 'Miércoles',
+  miércoles: 'Miércoles',
+  jueves: 'Jueves',
+  viernes: 'Viernes',
+};
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -14,7 +22,6 @@ function safeParse<T>(raw: string | null): T | null {
 
 @Injectable({ providedIn: 'root' })
 export class MenuStoreService {
-  private readonly auth = inject(AuthService);
   private readonly stateSig = signal<MenuState>(this.loadInitial());
 
   readonly state = computed(() => this.stateSig());
@@ -56,18 +63,16 @@ export class MenuStoreService {
     const fromStorage = safeParse<MenuState>(localStorage.getItem(STORAGE_KEY));
     if (!fromStorage || fromStorage.version !== 1) return structuredClone(DEFAULT_STATE);
 
-    const mergedDays = Object.fromEntries(
-      (Object.keys(DEFAULT_STATE.days) as Weekday[]).map((weekday) => [
-        weekday,
-        { ...structuredClone(DEFAULT_STATE.days[weekday]), ...(fromStorage.days?.[weekday] ?? {}) },
-      ])
-    ) as MenuState['days'];
-
     return {
       version: 1,
-      days: mergedDays,
+      days: { ...structuredClone(DEFAULT_STATE.days), ...fromStorage.days },
       settings: { ...structuredClone(DEFAULT_STATE.settings), ...fromStorage.settings },
     };
+  }
+
+  private normalizeWeekday(value: string): Weekday | null {
+    const key = value.trim().toLowerCase();
+    return WEEKDAY_MAP[key] ?? null;
   }
 
   private parseNumber(value: unknown): number | null {
@@ -81,120 +86,64 @@ export class MenuStoreService {
 
   private splitList(value: unknown): string[] {
     if (!value) return [];
-    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
     return String(value)
-      .split(/[;,]/)
+      .split(';')
       .map((v) => v.trim())
       .filter(Boolean);
   }
 
-  private mapApiSettings(records: Array<Record<string, unknown>>, fallback: MenuState['settings']): MenuState['settings'] {
-    const normalizeLines = (value: unknown): string[] | null => {
-      if (value === null || value === undefined) return null;
-      if (Array.isArray(value)) {
-        const lines = value.map((v) => String(v).trim()).filter(Boolean);
-        return lines.length ? lines : null;
-      }
-      const lines = this.splitList(value);
-      return lines.length ? lines : null;
+  private buildStateFromRows(rows: Array<Record<string, unknown>>): MenuState | null {
+    if (!rows.length) return null;
+
+    const base = structuredClone(DEFAULT_STATE);
+    const next: MenuState = {
+      version: 1,
+      days: { ...base.days },
+      settings: { ...base.settings },
     };
 
-    for (const record of records) {
-      const lines = normalizeLines(record['menu_settings']);
-      if (lines && lines.length) return { ...fallback, footerLines: lines };
+    for (const row of rows) {
+      const weekdayRaw = row['Día'] ?? row['Dia'];
+      if (!weekdayRaw) continue;
+      const weekday = this.normalizeWeekday(String(weekdayRaw));
+      if (!weekday) continue;
+
+      const current = next.days[weekday];
+      next.days[weekday] = {
+        ...current,
+        weekday,
+        platoDelDia: String(row['Plato del día'] ?? row['Plato del dia'] ?? current.platoDelDia ?? '').trim(),
+        precioPlatoDelDia: this.parseNumber(row['Precio plato del día (€)'] ?? row['Precio plato del dia (€)']),
+        precioMenu: this.parseNumber(row['Precio menú (€)'] ?? row['Precio menu (€)']),
+        primeros: this.splitList(row['Primeros (lista)']),
+        segundos: this.splitList(row['Segundos (lista)']),
+        postres: this.splitList(row['Postres caseros (lista)']),
+        telefono: String(row['Teléfono / reservas'] ?? row['Telefono / reservas'] ?? current.telefono ?? '').trim(),
+        notas: String(row['Notas'] ?? current.notas ?? '').trim(),
+      };
     }
 
-    return fallback;
+    return next;
   }
 
-  private mapApiDay(weekday: Weekday, raw: Record<string, unknown>, fallback: DayMenu): DayMenu {
-    const readString = (keys: string[], defaultValue: string) => {
-      for (const key of keys) {
-        const value = raw[key];
-        if (value !== undefined && value !== null) return String(value).trim();
-      }
-      return defaultValue;
-    };
-    const readNumber = (keys: string[], defaultValue: number | null) => {
-      for (const key of keys) {
-        const value = raw[key];
-        if (value !== undefined && value !== null && value !== '') return this.parseNumber(value);
-      }
-      return defaultValue;
-    };
-    const readList = (keys: string[], defaultValue: string[]) => {
-      for (const key of keys) {
-        const value = raw[key];
-        if (value !== undefined && value !== null) return this.splitList(value);
-      }
-      return defaultValue;
-    };
-    const readBoolean = (keys: string[], defaultValue: boolean) => {
-      for (const key of keys) {
-        const value = raw[key];
-        if (value === undefined || value === null || value === '') continue;
-        if (typeof value === 'boolean') return value;
-        if (typeof value === 'number') return value !== 0;
-        const normalized = String(value).trim().toLowerCase();
-        if (['1', 'true', 'si', 'sí', 'yes'].includes(normalized)) return true;
-        if (['0', 'false', 'no'].includes(normalized)) return false;
-      }
-      return defaultValue;
-    };
-
-    return {
-      weekday,
-      isHoliday: readBoolean(['isHoliday', 'is_holiday', 'holiday'], fallback.isHoliday ?? false),
-      platoDelDia: readString(['platoDelDia', 'plato_del_dia', 'plato'], fallback.platoDelDia),
-      precioPlatoDelDia: readNumber(['precioPlatoDelDia', 'precio_plato_del_dia'], fallback.precioPlatoDelDia),
-      precioMenu: readNumber(['precioMenu', 'precio_menu'], fallback.precioMenu),
-      primeros: readList(['primeros'], fallback.primeros),
-      segundos: readList(['segundos'], fallback.segundos),
-      postres: readList(['postres'], fallback.postres),
-      telefono: readString(['telefono', 'teléfono'], fallback.telefono),
-      notas: readString(['notas', 'nota'], fallback.notas ?? ''),
-    };
-  }
-
-  private apiDaySlug(weekday: Weekday): string {
-    const map: Record<Weekday, string> = {
-      Lunes: 'Lunes',
-      Martes: 'Martes',
-      Miércoles: 'Miercoles',
-      Jueves: 'Jueves',
-      Viernes: 'Viernes',
-    };
-    return map[weekday];
-  }
-
-  async loadFromApi(weekday: Weekday) {
+  async loadFromSheets() {
     try {
-      const token = this.auth.token();
-      if (!token) throw new Error('No hay token de autenticación.');
+      const url = new URL(ENDPOINT);
+      url.searchParams.set('action', 'menu-read');
+      const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+      if (!res.ok) throw new Error(`Error leyendo menu: ${res.status}`);
+      const data = (await res.json()) as {
+        ok?: boolean;
+        rows?: Array<Record<string, unknown>>;
+        menu?: MenuState;
+        error?: string;
+      };
+      if (data.ok === false) throw new Error(data.error || 'Error leyendo menu');
 
-      const slug = this.apiDaySlug(weekday);
-      const res = await fetch(`${MENU_API_BASE}/${slug}`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error(`Error leyendo ${weekday}: ${res.status}`);
-      const data = (await res.json()) as Record<string, unknown>;
-      const raw = (data['day'] as Record<string, unknown>) ?? (data['menu'] as Record<string, unknown>) ?? data;
-
-      const current = this.stateSig();
-      const existing = current.days[weekday];
-      const nextDay = { ...existing, ...this.mapApiDay(weekday, raw, existing), weekday };
-      const nextSettings = this.mapApiSettings([data, raw], current.settings);
-      this.stateSig.set({
-        ...current,
-        days: { ...current.days, [weekday]: nextDay },
-        settings: nextSettings,
-      });
+      const next = data.menu ?? (data.rows ? this.buildStateFromRows(data.rows) : null);
+      if (next) this.stateSig.set(next);
     } catch (err) {
-      console.error('No se pudo cargar el menú desde la API.', err);
+      console.error('No se pudo cargar el menú desde Google Sheets.', err);
     }
   }
 }

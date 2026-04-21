@@ -1,11 +1,8 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { AuthService } from './auth.service';
 
 export interface PublishPayload {
   weekday: string;
-  is_holiday: boolean;
   platoDelDia: string;
   precioPlatoDelDia: number | null;
   precioMenu: number | null;
@@ -18,43 +15,20 @@ export interface PublishPayload {
 
 @Injectable({ providedIn: 'root' })
 export class PublishService {
-  private readonly auth = inject(AuthService);
-  private readonly endpoint = `${environment.apiBaseUrl}/menus/days`;
-  private readonly weekdayMap: Record<string, string> = {
-    Lunes: 'Lunes',
-    Martes: 'Martes',
-    Miércoles: 'Miercoles',
-    Jueves: 'Jueves',
-    Viernes: 'Viernes',
-  };
+  private readonly endpoint =
+    'https://script.google.com/macros/s/AKfycbxlVInI-VLC7K1fSLRCmGyipK1nBzxlH4lZLNDlO4CIQ2bihVIPJRrxsF4MF1dYZeSv/exec';
 
-  publishDay(payload: PublishPayload, method: 'PATCH' | 'PUT' = 'PATCH'): Observable<{ ok: boolean; error?: string }> {
+  publishDay(payload: PublishPayload): Observable<{ ok: boolean; error?: string }> {
     return new Observable((observer) => {
-      const weekday = this.weekdayMap[payload.weekday] ?? payload.weekday?.toLowerCase?.() ?? payload.weekday;
-      const token = this.auth.token();
-
-      if (!token) {
-        observer.next({ ok: false, error: 'No hay token de autenticación.' });
-        observer.complete();
-        return;
-      }
-
-      fetch(`${this.endpoint}/${weekday}`, {
-        method,
+      const body = new URLSearchParams({ payload: JSON.stringify(payload) });
+      fetch(this.endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
         cache: 'no-store',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        keepalive: true,
+        body,
       })
-        .then(async (res) => {
-          if (!res.ok) {
-            const message = await res.text();
-            observer.next({ ok: false, error: message || `Error ${res.status}` });
-            observer.complete();
-            return;
-          }
+        .then(() => {
           observer.next({ ok: true });
           observer.complete();
         })

@@ -2,7 +2,6 @@ export type Weekday = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
 
 export interface DayMenu {
   weekday: Weekday;
-  isHoliday: boolean;
   platoDelDia: string;
   precioPlatoDelDia: number | null;
   precioMenu: number | null;

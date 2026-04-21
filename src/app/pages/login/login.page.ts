@@ -37,22 +37,8 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `,
   styles: [`
-    .wrap {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: 32px 16px;
-      background:
-        radial-gradient(520px 260px at 10% 8%, rgba(47, 94, 159, 0.11), transparent 70%),
-        radial-gradient(540px 260px at 92% 0%, rgba(47, 94, 159, 0.09), transparent 70%);
-    }
-    .loginCard {
-      padding: 30px;
-      width: min(460px, 92vw);
-      text-align: left;
-      border: 1px solid rgba(191, 205, 228, 0.85);
-      box-shadow: var(--shadow-2);
-    }
+    .wrap { display: grid; place-items: center; min-height: 100vh; padding: 32px 16px; }
+    .loginCard { padding: 28px; width: min(440px, 92vw); text-align: left; }
     .cardHeader {
       display: grid;
       gap: 10px;
@@ -60,7 +46,7 @@ import { AuthService } from '../../services/auth.service';
       justify-items: center;
       text-align: center;
     }
-    .logo { height: 60px; width: auto; }
+    .logo { height: 72px; width: auto; }
     .appName {
       font-size: 26px;
       font-weight: 700;
@@ -79,14 +65,13 @@ import { AuthService } from '../../services/auth.service';
       border-radius: 14px;
       display: grid;
       place-items: center;
-      background: rgba(47, 94, 159, 0.12);
-      color: var(--color-primary-600);
-      border: 1px solid rgba(47, 94, 159, 0.2);
+      background: rgba(111, 84, 55, 0.12);
+      color: #6f5437;
     }
     .buttonWrap { display: flex; justify-content: center; margin-top: 16px; }
     .error {
       margin-top: 12px;
-      color: var(--color-danger-500);
+      color: #b42318;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
@@ -105,7 +90,7 @@ export class LoginPageComponent {
 
   constructor() {
     effect(() => {
-      if (this.isLoggedIn()) this.router.navigateByUrl('/dashboard');
+      if (this.isLoggedIn()) this.router.navigateByUrl('/editor');
     });
   }
 
