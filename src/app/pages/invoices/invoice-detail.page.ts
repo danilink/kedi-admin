@@ -210,12 +210,11 @@ export class InvoiceDetailComponent {
   }
 
   download() {
-    const url = this.invoice()?.originalUrl;
-    if (!url) {
-      this.snackBar.open('No hay fichero original disponible.', 'Cerrar', { duration: 2500 });
-      return;
-    }
-    window.open(url, '_blank');
+    const invoice = this.invoice();
+    if (!invoice) return;
+    this.invoices.downloadFile(invoice.id, invoice.originalFileName).subscribe({
+      error: () => this.snackBar.open('No se pudo descargar el fichero.', 'Cerrar', { duration: 2500 }),
+    });
   }
 
   reprocess() {

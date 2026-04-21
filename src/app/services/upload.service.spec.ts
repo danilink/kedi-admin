@@ -34,6 +34,6 @@ describe('UploadService', () => {
     const req = httpMock.expectOne('/api/invoices/upload');
     expect(req.request.method).toBe('POST');
     req.event({ type: 1, loaded: 50, total: 100 });
-    req.flush({ invoiceId: 'inv-1' });
+    req.flush([{ status: 'imported', sourceId: 'src-1', invoiceId: 'inv-1', supplierId: null, customerId: null, warnings: [] }]);
   });
 });

@@ -9,6 +9,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { AppComponent } from './app/app.component';
 import { APP_ROUTES } from './app/app.routes';
+import { authInterceptor } from './app/services/auth.interceptor';
 import { httpErrorInterceptor } from './app/services/http-error.interceptor';
 
 registerLocaleData(localeEs);
@@ -16,7 +17,7 @@ registerLocaleData(localeEs);
 bootstrapApplication(AppComponent, {
   providers: [
     provideAnimations(),
-    provideHttpClient(withInterceptors([httpErrorInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, httpErrorInterceptor])),
     importProvidersFrom(MatSnackBarModule),
     provideRouter(APP_ROUTES),
     { provide: LOCALE_ID, useValue: 'es-ES' },

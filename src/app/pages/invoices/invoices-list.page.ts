@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, DestroyRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
@@ -18,11 +18,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { SelectionModel } from '@angular/cdk/collections';
 import { debounceTime, merge, startWith, switchMap, tap, catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { InvoiceDto, InvoiceFilters, InvoiceStatus } from '../../models/invoice.models';
 import { InvoicesService } from '../../services/invoices.service';
+import { ComparisonService } from '../../core/services/comparison.service';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog/confirm-dialog.component';
 
 const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
@@ -55,6 +58,7 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
     MatProgressBarModule,
     MatTooltipModule,
     MatDialogModule,
+    MatCheckboxModule,
   ],
   template: `
     <div class="container invoices">
@@ -69,6 +73,14 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
           <button mat-stroked-button (click)="resetFilters()">
             <mat-icon>restart_alt</mat-icon>
             Limpiar filtros
+          </button>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="compareSelected()"
+            [disabled]="selectedCount() < 2 || comparing()"
+          >
+            Comparar seleccionadas ({{ selectedCount() }})
           </button>
           <div class="resultMeta">{{ total() }} facturas</div>
         </div>
@@ -104,6 +116,22 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
 
         <div class="tableWrap" [class.is-loading]="loading()">
           <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z0">
+            <ng-container matColumnDef="select">
+              <th mat-header-cell *matHeaderCellDef>
+                <mat-checkbox
+                  [checked]="isAllSelected()"
+                  [indeterminate]="selection.hasValue() && !isAllSelected()"
+                  (change)="toggleAll()"
+                ></mat-checkbox>
+              </th>
+              <td mat-cell *matCellDef="let row">
+                <mat-checkbox
+                  (click)="$event.stopPropagation()"
+                  [checked]="selection.isSelected(row)"
+                  (change)="toggleRow(row)"
+                ></mat-checkbox>
+              </td>
+            </ng-container>
             <ng-container matColumnDef="number">
               <th mat-header-cell *matHeaderCellDef mat-sort-header>
                 <div class="headerCell">
@@ -280,6 +308,9 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
                 }
               </th>
             </ng-container>
+            <ng-container matColumnDef="filterSelect">
+              <th mat-header-cell *matHeaderCellDef></th>
+            </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr
@@ -293,6 +324,7 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
         </div>
 
         <mat-paginator [length]="total()" [pageSize]="10" [pageSizeOptions]="[10, 20, 50]" showFirstLastButtons></mat-paginator>
+
       </mat-card>
     </div>
   `,
@@ -302,14 +334,23 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: var(--space-3) 0;
+      margin: var(--space-2) 0 var(--space-3);
       flex-wrap: wrap;
       gap: var(--space-2);
+      padding: 10px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f9fcff, #f4f8fe);
+      border: 1px solid rgba(194, 208, 229, 0.7);
     }
-    .resultMeta { color: var(--color-muted); font-size: var(--font-size-12); }
+    .resultMeta {
+      color: var(--color-muted);
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-medium);
+      padding: 0 8px;
+    }
     .tableWrap { width: 100%; overflow: auto; }
     .tableWrap.is-loading { opacity: 0.6; pointer-events: none; }
-    table { width: 100%; min-width: 860px; }
+    table { width: 100%; min-width: 900px; }
     .skeletonTable { display: grid; gap: 8px; margin: 12px 0; }
     .skeletonRow {
       height: 44px;
@@ -318,16 +359,32 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
       background-size: 200% 100%;
       animation: shimmer 1.6s infinite;
     }
-    .vendor { font-weight: var(--font-weight-medium); }
+    .vendor { font-weight: var(--font-weight-medium); color: var(--color-text); }
     .file { font-size: var(--font-size-12); color: var(--color-muted); }
-    .actions { display: inline-flex; gap: 4px; }
-    .headerCell { display: inline-flex; align-items: center; gap: 6px; }
-    .filterBtn { width: 28px; height: 28px; }
+    .actions { display: inline-flex; gap: 2px; }
+    .actions .mat-mdc-icon-button { color: var(--color-primary-600); }
+    .actions .mat-mdc-icon-button[disabled] { color: var(--color-muted-2); }
+    .headerCell {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-muted-2);
+    }
+    .filterBtn { width: 28px; height: 28px; color: var(--color-primary-600); }
     .filterBtn mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    .filterRow th { padding: 4px 8px 12px; vertical-align: top; }
+    .filterRow th {
+      padding: 10px 8px 12px;
+      vertical-align: top;
+      background: linear-gradient(180deg, #fcfdff, #f7faff);
+      border-bottom: 1px solid rgba(194, 208, 229, 0.7);
+    }
     .filterRow.is-hidden { display: none; }
     .filterField { width: 100%; }
-    .filterRange { display: grid; gap: 6px; }
+    .filterRange { display: grid; gap: 6px; min-width: 180px; }
     .stateBlock {
       display: flex;
       align-items: center;
@@ -342,10 +399,10 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
     .stateTitle { font-weight: var(--font-weight-bold); }
     .stateSubtitle { color: var(--color-muted); font-size: var(--font-size-12); }
     .statusChip { font-weight: var(--font-weight-medium); text-transform: capitalize; }
-    .statusChip.uploaded { background: rgba(124, 135, 152, 0.2); color: var(--color-muted); }
-    .statusChip.processing { background: rgba(47, 129, 237, 0.15); color: #2f6ad1; }
-    .statusChip.parsed { background: rgba(47, 143, 75, 0.15); color: var(--color-success-500); }
-    .statusChip.error { background: rgba(179, 38, 30, 0.15); color: var(--color-danger-500); }
+    .statusChip.uploaded { background: rgba(115, 128, 154, 0.18); color: var(--color-muted); }
+    .statusChip.processing { background: rgba(39, 94, 142, 0.14); color: var(--color-info-500); }
+    .statusChip.parsed { background: rgba(19, 121, 91, 0.14); color: var(--color-success-500); }
+    .statusChip.error { background: rgba(183, 59, 59, 0.14); color: var(--color-danger-500); }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
@@ -354,15 +411,31 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | 'all'; label: string }> = [
     @media (max-width: 768px) {
       .filterActions { align-items: stretch; }
       .filterActions button { width: 100%; }
+      .resultMeta { width: 100%; padding: 0; }
+      table { min-width: 780px; }
+    }
+
+    @media (max-width: 520px) {
+      .invoices { gap: var(--space-4); }
+      .filterActions {
+        padding: 8px;
+        margin-bottom: var(--space-2);
+      }
+      .filterRow th {
+        padding: 8px 6px 10px;
+      }
+      table { min-width: 700px; }
     }
   `],
 })
 export class InvoicesListComponent implements AfterViewInit {
   private readonly invoices = inject(InvoicesService);
+  private readonly comparisonService = inject(ComparisonService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
 
   readonly statusOptions = STATUS_OPTIONS;
   readonly loading = signal(false);
@@ -393,9 +466,11 @@ export class InvoicesListComponent implements AfterViewInit {
   });
 
   readonly dataSource = new MatTableDataSource<InvoiceDto>([]);
-  readonly displayedColumns = ['number', 'vendor', 'issueDate', 'status', 'total', 'actions'];
-  readonly filterColumns = ['filterNumber', 'filterVendor', 'filterDate', 'filterStatus', 'filterTotal', 'filterActions'];
+  readonly displayedColumns = ['select', 'number', 'vendor', 'issueDate', 'status', 'total', 'actions'];
+  readonly filterColumns = ['filterSelect', 'filterNumber', 'filterVendor', 'filterDate', 'filterStatus', 'filterTotal', 'filterActions'];
   readonly skeletonRows = Array.from({ length: 6 }, (_, i) => i);
+  readonly selection = new SelectionModel<InvoiceDto>(true, []);
+  readonly comparing = signal(false);
 
   @ViewChild(MatPaginator) paginator?: MatPaginator;
   @ViewChild(MatSort) sort?: MatSort;
@@ -457,11 +532,9 @@ export class InvoicesListComponent implements AfterViewInit {
   }
 
   download(row: InvoiceDto) {
-    if (!row.originalUrl) {
-      this.snackBar.open('No hay fichero original disponible.', 'Cerrar', { duration: 3000 });
-      return;
-    }
-    window.open(row.originalUrl, '_blank');
+    this.invoices.downloadFile(row.id, row.originalFileName).subscribe({
+      error: () => this.snackBar.open('No se pudo descargar el fichero.', 'Cerrar', { duration: 3000 }),
+    });
   }
 
   retry(row: InvoiceDto) {
@@ -494,6 +567,48 @@ export class InvoicesListComponent implements AfterViewInit {
     });
   }
 
+  selectedCount() {
+    return this.selection.selected.length;
+  }
+
+  isAllSelected() {
+    const numSelected = this.selection.selected.length;
+    const numRows = this.dataSource.data.length;
+    return numSelected > 0 && numSelected === numRows;
+  }
+
+  toggleAll() {
+    if (this.isAllSelected()) {
+      this.selection.clear();
+      return;
+    }
+    this.selection.select(...this.dataSource.data);
+  }
+
+  toggleRow(row: InvoiceDto) {
+    this.selection.toggle(row);
+  }
+
+  compareSelected() {
+    const ids = this.selection.selected.map((row) => row.id);
+    if (ids.length < 2) return;
+    this.comparing.set(true);
+    this.comparisonService.createComparison({
+      invoiceIds: ids,
+      params: { currency: 'EUR' },
+    }).subscribe({
+      next: (res) => {
+        this.comparing.set(false);
+        this.snackBar.open('Comparación creada.', 'Cerrar', { duration: 2500 });
+        if (res?.id) this.router.navigate(['/comparisons', res.id]);
+      },
+      error: (err) => {
+        this.comparing.set(false);
+        this.snackBar.open(err?.message ?? 'No se pudo comparar.', 'Cerrar', { duration: 3000 });
+      },
+    });
+  }
+
   private load() {
     const filters = this.form.getRawValue();
     const payload: InvoiceFilters = {
@@ -520,13 +635,31 @@ export class InvoicesListComponent implements AfterViewInit {
           this.dataSource.data = res.items;
           this.total.set(res.total);
           this.loading.set(false);
+          this.selection.clear();
         }),
         catchError((err) => {
           this.loading.set(false);
-          this.error.set(err?.message ?? 'Error desconocido');
+          this.error.set(this.errorMessage(err?.status));
           return of(null);
         })
       );
+  }
+
+  private errorMessage(status: number) {
+    const map: Record<number, string> = {
+      0: 'No se pudo conectar con el servidor.',
+      400: 'Solicitud incorrecta.',
+      401: 'No autorizado. Inicia sesión de nuevo.',
+      403: 'No tienes permisos para esta acción.',
+      404: 'Recurso no encontrado.',
+      409: 'Conflicto con el estado actual.',
+      422: 'Datos inválidos. Revisa los filtros.',
+      429: 'Demasiadas solicitudes. Inténtalo más tarde.',
+      500: 'Error interno del servidor.',
+      502: 'Servidor no disponible.',
+      503: 'Servicio en mantenimiento.',
+    };
+    return map[status] ?? 'Error inesperado. Inténtalo de nuevo.';
   }
 
   private toIso(date: Date) {

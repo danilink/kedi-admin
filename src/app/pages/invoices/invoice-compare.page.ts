@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatStepperModule } from '@angular/material/stepper';
+import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -75,10 +75,13 @@ const MAX_SIZE = 15 * 1024 * 1024;
                       <div class="uploadName">{{ item.name }}</div>
                       <div class="uploadMeta">{{ item.size / 1024 | number:'1.0-0' }} KB · {{ item.type || 'archivo' }}</div>
                     </div>
-                    <div class="uploadStatus">
-                      <mat-progress-bar [value]="item.progress" mode="determinate"></mat-progress-bar>
-                      <span class="statusText">{{ item.status }}</span>
-                    </div>
+                  <div class="uploadStatus">
+                    <mat-progress-bar [value]="item.progress" mode="determinate"></mat-progress-bar>
+                    <span class="statusText">{{ item.status }}</span>
+                    @if (item.warnings?.length) {
+                      <div class="warningText">{{ item.warnings.join(' · ') }}</div>
+                    }
+                  </div>
                     <button mat-icon-button (click)="cancel(item)" [disabled]="item.status === 'uploaded'">
                       <mat-icon>close</mat-icon>
                     </button>
@@ -87,7 +90,14 @@ const MAX_SIZE = 15 * 1024 * 1024;
               </div>
 
               <div class="stepActions">
-                <button mat-raised-button color="primary" (click)="goToProcessing()" [disabled]="!canProceedToProcessing()">Continuar</button>
+                <button
+                  mat-raised-button
+                  color="primary"
+                  (click)="primaryUploadAction()"
+                  [disabled]="!canProceedToProcessing()"
+                >
+                  {{ hasMultipleUploaded() ? 'Comparar' : 'Continuar' }}
+                </button>
               </div>
             </div>
           </mat-step>
@@ -248,6 +258,7 @@ const MAX_SIZE = 15 * 1024 * 1024;
     .uploadMeta { font-size: var(--font-size-12); color: var(--color-muted); }
     .uploadStatus { display: grid; gap: 4px; }
     .statusText { font-size: var(--font-size-12); color: var(--color-muted); text-transform: capitalize; }
+    .warningText { font-size: var(--font-size-11); color: var(--color-danger-500); }
     .stepActions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
     .statusHeader { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
     .statusList { display: grid; gap: var(--space-2); }
@@ -280,6 +291,7 @@ export class InvoiceCompareWizardComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild(MatStepper) stepper?: MatStepper;
 
   readonly uploads = signal<UploadItemDto[]>([]);
   readonly processingInvoices = signal<InvoiceDto[]>([]);
@@ -322,9 +334,22 @@ export class InvoiceCompareWizardComponent {
     return this.uploads().some((u) => u.status === 'uploaded');
   }
 
+  hasMultipleUploaded() {
+    return this.uploads().filter((u) => u.status === 'uploaded' && !!u.invoiceId).length > 1;
+  }
+
+  primaryUploadAction() {
+    if (this.hasMultipleUploaded()) {
+      this.compareFromUploads();
+      return;
+    }
+    this.goToProcessing();
+  }
+
   goToProcessing() {
     this.refreshStatuses();
     this.startPolling();
+    if (this.stepper) this.stepper.selectedIndex = 1;
   }
 
   backToUpload() {
@@ -343,7 +368,10 @@ export class InvoiceCompareWizardComponent {
     if (!baseline) return;
     this.baselineId.set(baseline);
     this.compareService.getResult(baseline, ids).subscribe({
-      next: (res) => this.compareResult.set(res),
+      next: (res) => {
+        this.compareResult.set(res);
+        this.syncFromCompareResult(res);
+      },
       error: (err) => this.snackBar.open(err?.message ?? 'No se pudo comparar.', 'Cerrar', { duration: 3000 }),
     });
   }
@@ -352,7 +380,10 @@ export class InvoiceCompareWizardComponent {
     this.baselineId.set(id);
     const ids = this.processingInvoices().map((i) => i.id);
     this.compareService.getResult(id, ids).subscribe({
-      next: (res) => this.compareResult.set(res),
+      next: (res) => {
+        this.compareResult.set(res);
+        this.syncFromCompareResult(res);
+      },
       error: (err) => this.snackBar.open(err?.message ?? 'No se pudo comparar.', 'Cerrar', { duration: 3000 }),
     });
   }
@@ -469,6 +500,44 @@ export class InvoiceCompareWizardComponent {
     const list = this.processingInvoices().map((invoice) => (
       invoice.id === id ? { ...invoice, status: 'error' as const } : invoice
     ));
+    this.processingInvoices.set(list);
+  }
+
+  private compareFromUploads() {
+    const ids = this.uploads()
+      .map((u) => u.invoiceId)
+      .filter((id): id is string => !!id);
+    if (ids.length < 2) return;
+    const baseline = ids[0];
+    this.baselineId.set(baseline);
+    this.compareService.getResult(baseline, ids).subscribe({
+      next: (res) => {
+        this.compareResult.set(res);
+        this.syncFromCompareResult(res);
+        if (this.stepper) this.stepper.selectedIndex = 2;
+      },
+      error: (err) => this.snackBar.open(err?.message ?? 'No se pudo comparar.', 'Cerrar', { duration: 3000 }),
+    });
+  }
+
+  private syncFromCompareResult(result: CompareResultDto) {
+    if (result?.baselineId) this.baselineId.set(result.baselineId);
+    const current = this.processingInvoices();
+    if (current.length) return;
+    const list = result.totals.map((row) => ({
+      id: row.invoiceId,
+      vendor: row.vendor,
+      number: '',
+      currency: result.currency,
+      status: 'parsed' as const,
+      issueDate: '',
+      subtotal: row.subtotal,
+      tax: row.tax,
+      total: row.total,
+      originalFileName: '',
+      createdAt: '',
+      updatedAt: '',
+    }));
     this.processingInvoices.set(list);
   }
 }

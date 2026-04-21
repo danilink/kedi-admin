@@ -53,6 +53,7 @@ export interface UploadItemDto {
   progress: number;
   status: 'queued' | 'uploading' | 'uploaded' | 'error' | 'canceled';
   error?: string;
+  warnings?: string[];
   invoiceId?: string;
 }
 
@@ -82,4 +83,50 @@ export interface CompareResultDto {
     total: number;
     byInvoice: Record<string, { unitPrice: number; quantity: number; total: number }>;
   }>;
+}
+
+export type InvoiceCompareTotalsDiff = Record<
+  string,
+  {
+    subtotal?: { absDiff: number; percentDiff: number };
+    tax_total?: { absDiff: number; percentDiff: number };
+    total?: { absDiff: number; percentDiff: number };
+  }
+>;
+
+export type InvoiceCompareLineItemDiff = {
+  unit_price?: { absDiff: number; percentDiff: number };
+  line_total?: { absDiff: number; percentDiff: number };
+};
+
+export interface InvoiceCompareApiResult {
+  invoices: Array<{
+    id: string;
+    original_filename: string;
+    status: string;
+    supplier_name: string | null;
+    invoice_number: string | null;
+    invoice_date: string | null;
+    currency: string | null;
+    subtotal: number | null;
+    tax_total: number | null;
+    total: number | null;
+    extraction_confidence: number | null;
+    error_message: string | null;
+    created_at: string;
+  }>;
+  baselineId: string;
+  totalsDiff: InvoiceCompareTotalsDiff;
+  lineItemsCompare?: {
+    items: Array<{
+      itemKey: string;
+      values: Record<string, { unit_price: number; line_total: number }>;
+      diffs?: Record<string, InvoiceCompareLineItemDiff>;
+    }>;
+    quality?: {
+      matchRate: number;
+      unmatchedItems: number;
+      avgConfidence: number;
+    };
+  };
 }

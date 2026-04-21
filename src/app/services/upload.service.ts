@@ -4,6 +4,19 @@ import { Observable, Subject, concat, of } from 'rxjs';
 import { map, takeUntil, catchError, finalize } from 'rxjs/operators';
 import { UploadItemDto } from '../models/invoice.models';
 
+type UploadApiResult = {
+  status: 'imported' | 'duplicate' | 'partial' | 'failed';
+  sourceId: string;
+  invoiceId: string | null;
+  supplierId: string | null;
+  customerId: string | null;
+  warnings: string[];
+};
+
+type LegacyUploadResult = {
+  invoiceId?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class UploadService {
   private readonly cancelMap = new Map<string, Subject<void>>();
@@ -27,7 +40,7 @@ export class UploadService {
     const formData = new FormData();
     formData.append('files', file, file.name);
 
-    const request$ = this.http.post<{ invoiceId: string }>('/api/invoices/upload', formData, {
+    const request$ = this.http.post<UploadApiResult[] | UploadApiResult | LegacyUploadResult | null>('/api/invoices/upload', formData, {
       reportProgress: true,
       observe: 'events',
     });
@@ -36,17 +49,26 @@ export class UploadService {
       of({ ...base, status: 'uploading' as const }),
       request$.pipe(
         takeUntil(cancel$),
-        map((event: HttpEvent<{ invoiceId: string }>) => {
+        map((event: HttpEvent<UploadApiResult[] | UploadApiResult | LegacyUploadResult | null>) => {
           if (event.type === HttpEventType.UploadProgress) {
             const progress = event.total ? Math.round((event.loaded / event.total) * 100) : 0;
             return { ...base, progress, status: 'uploading' as const };
           }
           if (event.type === HttpEventType.Response) {
+            const result = normalizeUploadResult(event.body);
+            const isLegacy = !!(result && !('status' in result));
+            const warnings = !isLegacy && result ? result.warnings ?? [] : [];
+            if (!isLegacy && result?.status === 'duplicate') warnings.unshift('Factura duplicada');
+            if (!isLegacy && result?.status === 'partial') warnings.unshift('Factura parcialmente importada');
+            const status: UploadItemDto['status'] = !isLegacy && result?.status === 'failed' ? 'error' : 'uploaded';
+            const error = status === 'error' ? warnings.join(' · ') || 'Upload error' : undefined;
             return {
               ...base,
               progress: 100,
-              status: 'uploaded' as const,
-              invoiceId: event.body?.invoiceId,
+              status,
+              invoiceId: result?.invoiceId ?? undefined,
+              warnings,
+              error,
             };
           }
           return { ...base, progress: 0, status: 'uploading' as const };
@@ -70,4 +92,10 @@ export class UploadService {
     cancel$.complete();
     this.cancelMap.delete(id);
   }
+}
+
+function normalizeUploadResult(body: UploadApiResult[] | UploadApiResult | LegacyUploadResult | null | undefined) {
+  if (!body) return null;
+  if (Array.isArray(body)) return body[0] ?? null;
+  return body;
 }
