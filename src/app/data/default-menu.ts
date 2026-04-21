@@ -8,6 +8,7 @@ const footerLinesDefault: string[] = [
 
 function day(
   weekday: Weekday,
+  isHoliday: boolean,
   platoDelDia: string,
   precioPlatoDelDia: number,
   precioMenu: number,
@@ -18,6 +19,7 @@ function day(
 ) {
   return {
     weekday,
+    isHoliday,
     platoDelDia,
     precioPlatoDelDia,
     precioMenu,
@@ -34,6 +36,7 @@ export const DEFAULT_STATE: MenuState = {
   days: {
     Lunes: day(
       'Lunes',
+      false,
       'Arroz de campo',
       5.2,
       11.5,
@@ -64,6 +67,7 @@ export const DEFAULT_STATE: MenuState = {
     ),
     Martes: day(
       'Martes',
+      false,
       'Lentejas caseras',
       5.2,
       11.5,
@@ -89,6 +93,7 @@ export const DEFAULT_STATE: MenuState = {
     ),
     'Miércoles': day(
       'Miércoles',
+      false,
       'Cocido madrileño (garbanzos, carne y verdura)',
       5.2,
       11.5,
@@ -119,6 +124,7 @@ export const DEFAULT_STATE: MenuState = {
     ),
     Jueves: day(
       'Jueves',
+      false,
       'Paella mixta de pollo y mariscos',
       5.2,
       11.5,
@@ -143,6 +149,7 @@ export const DEFAULT_STATE: MenuState = {
     ),
     Viernes: day(
       'Viernes',
+      false,
       'Fabada asturiana',
       5.2,
       11.5,

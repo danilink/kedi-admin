@@ -1,9 +1,9 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { MenuState } from '../models/menu.models';
 import { EMPTY_LIBRARY, MenuLibrary } from '../data/menu-library';
+import { AuthService } from './auth.service';
 
-const ENDPOINT =
-  'https://script.google.com/macros/s/AKfycbxlVInI-VLC7K1fSLRCmGyipK1nBzxlH4lZLNDlO4CIQ2bihVIPJRrxsF4MF1dYZeSv/exec';
+const ENDPOINT = '/api/v1/suggestions';
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -34,6 +34,7 @@ function diffNewItems(existing: string[], incoming: string[]) {
 
 @Injectable({ providedIn: 'root' })
 export class MenuLibraryService {
+  private readonly auth = inject(AuthService);
   private readonly stateSig = signal<MenuLibrary>(structuredClone(EMPTY_LIBRARY));
   private bootstrapped = false;
 
@@ -86,10 +87,18 @@ export class MenuLibraryService {
   }
 
   private async readSheet(kind: 'primeros' | 'segundos' | 'postres'): Promise<string[]> {
-    const url = new URL(ENDPOINT);
-    url.searchParams.set('action', 'suggestions-read');
-    url.searchParams.set('sheet', kind);
-    const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+    const token = this.auth.token();
+    if (!token) throw new Error('No hay token de autenticación.');
+
+    const url = new URL(ENDPOINT, window.location.origin);
+    url.searchParams.set('kind', kind);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     if (!res.ok) throw new Error(`Error leyendo ${kind}: ${res.status}`);
     const data = (await res.json()) as { items?: string[] };
     return (data.items ?? []).map((v) => v.trim()).filter(Boolean);
@@ -97,15 +106,17 @@ export class MenuLibraryService {
 
   private async appendToSheet(kind: 'primeros' | 'segundos' | 'postres', items: string[]) {
     try {
-      const body = new URLSearchParams({
-        action: 'suggestions-append',
-        sheet: kind,
-        items: JSON.stringify(items),
-      });
-      await fetch(ENDPOINT, {
+      const token = this.auth.token();
+      if (!token) throw new Error('No hay token de autenticación.');
+
+      await fetch(`${ENDPOINT}/append`, {
         method: 'POST',
         cache: 'no-store',
-        body,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ kind, items }),
       });
     } catch (err) {
       console.error(`Error guardando sugerencias en ${kind}.`, err);

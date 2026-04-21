@@ -19,6 +19,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 const WEEKDAYS: Weekday[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -36,7 +37,7 @@ type MenuForm = FormGroup<{
   segundos: FormArray<FormControl<string>>;
   postres: FormArray<FormControl<string>>;
   telefono: FormControl<string>;
-  notas: FormControl<string>;
+  isHoliday: FormControl<boolean>;
 }>;
 
 @Component({
@@ -53,6 +54,7 @@ type MenuForm = FormGroup<{
     MatButtonModule,
     MatDividerModule,
     MatIconModule,
+    MatCheckboxModule,
     ListEditorComponent,
   ],
   template: `
@@ -104,6 +106,10 @@ type MenuForm = FormGroup<{
                 <input matInput type="number" step="0.01" formControlName="precioMenu" />
               </mat-form-field>
             </div>
+
+            <mat-checkbox class="holidayToggle" formControlName="isHoliday">
+              Día festivo (no hay menú)
+            </mat-checkbox>
           </div>
 
           <div class="sectionCard">
@@ -202,19 +208,14 @@ type MenuForm = FormGroup<{
           <div class="sectionCard">
             <div class="sectionHeader">
               <div>
-                <div class="sectionTitle">Contacto y notas</div>
-                <div class="sectionSubtitle">Se muestran en la versión imprimible.</div>
+                <div class="sectionTitle">Contacto</div>
+                <div class="sectionSubtitle">Se muestra en la versión imprimible.</div>
               </div>
             </div>
 
             <mat-form-field appearance="outline" class="full">
               <mat-label>Teléfono / reservas</mat-label>
               <input matInput formControlName="telefono" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="full">
-              <mat-label>Notas internas</mat-label>
-              <textarea matInput rows="3" formControlName="notas"></textarea>
             </mat-form-field>
           </div>
         </form>
@@ -278,6 +279,7 @@ type MenuForm = FormGroup<{
     .listActions { display: flex; gap: 8px; flex-wrap: wrap; }
     .footerEditor { margin-top: var(--space-2); }
     .footerActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--space-2); }
+    .holidayToggle { margin-top: var(--space-1); }
 
     @media (max-width: 768px) {
       .actions { flex-direction: column; align-items: stretch; width: 100%; }
@@ -309,7 +311,7 @@ export class EditorPageComponent {
     segundos: this.fb.array<FormControl<string>>([]),
     postres: this.fb.array<FormControl<string>>([]),
     telefono: this.fb.control('', { nonNullable: true }),
-    notas: this.fb.control('', { nonNullable: true }),
+    isHoliday: this.fb.control(false, { nonNullable: true }),
   });
 
   readonly publishStatus = signal('');
@@ -326,14 +328,15 @@ export class EditorPageComponent {
   get postres() { return this.form.controls.postres; }
 
   constructor() {
-    void this.store.loadFromSheets();
+    void this.store.loadFromApi(this.selectedDay());
     void this.library.loadFromSheets().then(() => {
       this.library.bootstrapFromState(this.store.state());
     });
 
     effect(() => {
       const day = this.store.getDay(this.selectedDay())();
-      this.patchFormFromDay(day);
+      // Defer to avoid ExpressionChangedAfterItHasBeenChecked in nested list editor.
+      queueMicrotask(() => this.patchFormFromDay(day));
     });
 
     this.form.valueChanges
@@ -354,7 +357,9 @@ export class EditorPageComponent {
   }
 
   onTab(index: number) {
-    this.selectedDay.set(this.weekdays[index] ?? 'Lunes');
+    const nextDay = this.weekdays[index] ?? 'Lunes';
+    this.selectedDay.set(nextDay);
+    void this.store.loadFromApi(nextDay);
   }
 
   addFooterLine() { this.store.updateFooterLines([...this.footerLines(), '']); }
@@ -385,8 +390,10 @@ export class EditorPageComponent {
       primeros: v.primeros ?? [],
       segundos: v.segundos ?? [],
       postres: v.postres ?? [],
+      menu_settings: this.store.settings().footerLines ?? [],
       telefono: v.telefono ?? '',
-      notas: v.notas ?? '',
+      is_holiday: v.isHoliday ?? false,
+      notas: '',
     };
 
     try {
@@ -406,7 +413,7 @@ export class EditorPageComponent {
         precioPlatoDelDia: day.precioPlatoDelDia ?? null,
         precioMenu: day.precioMenu ?? null,
         telefono: day.telefono ?? '',
-        notas: day.notas ?? '',
+        isHoliday: day.isHoliday ?? false,
       },
       { emitEvent: false }
     );
@@ -448,7 +455,8 @@ export class EditorPageComponent {
       segundos: v.segundos,
       postres: v.postres,
       telefono: v.telefono,
-      notas: v.notas,
+      isHoliday: v.isHoliday,
+      notas: '',
     };
   }
 }
